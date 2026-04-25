@@ -22,18 +22,23 @@
         button { background-color: #e67e22; color: white; border: none; padding: 15px 20px; cursor: pointer; border-radius: 4px; font-size: 18px; width: 100%; font-weight: bold; }
         button:hover { background-color: #d35400; }
         
-        #report-section { display: none; margin-top: 30px; padding: 20px; border: 2px dashed #7f8c8d; background-color: #fdfefe; }
-        .print-btn { background-color: #27ae60; margin-top: 15px; }
+        #report-section { display: none; margin-top: 40px; padding: 20px; border: 2px dashed #7f8c8d; background-color: #fdfefe; }
+        .print-btn { background-color: #27ae60; margin-top: 20px; }
         .print-btn:hover { background-color: #2ecc71; }
+        .clear-btn { background-color: #c0392b; margin-top: 10px; font-size: 14px; padding: 10px; }
+        .clear-btn:hover { background-color: #e74c3c; }
         
-        /* Internal table for ROM/MMT breakdowns */
+        /* Individual Assessment Blocks in the Report */
+        .assessment-block { border-left: 4px solid #3498db; padding: 15px; background-color: #e8f4f8; margin-bottom: 20px; page-break-inside: avoid; }
+        .assessment-block h3 { margin-top: 0; color: #2980b9; border-bottom: 1px solid #bdc3c7; padding-bottom: 5px; }
         .breakdown-table th { background-color: #7f8c8d; }
         
         @media print {
             body { background: white; padding: 0; }
             .container { box-shadow: none; max-width: 100%; padding: 0; }
-            #input-section, .print-btn { display: none; }
-            #report-section { display: block; border: none; }
+            #input-section, .print-btn, .clear-btn { display: none; }
+            #report-section { display: block; border: none; padding: 0; margin-top: 0;}
+            .assessment-block { border-left: 3px solid #000; background-color: transparent; border-bottom: 1px solid #ccc; padding: 10px 0; }
         }
     </style>
 </head>
@@ -76,21 +81,16 @@
     </div>
 
     <div id="report-section">
-        <h1>Therapy Outcome Report</h1>
+        <h1 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">Comprehensive Bootcamp Evaluation Report</h1>
         <p><strong>Patient ID:</strong> <span id="outPatient"></span></p>
         <p><strong>Stroke Chronicity:</strong> <span id="outChronicity"></span></p>
-        <hr>
-        <h3>Assessment: <span id="outAssessment"></span></h3>
-        <p><strong>Baseline (Day 1):</strong> <span id="outPre"></span></p>
-        <p><strong>Post-Bootcamp (Day 3):</strong> <span id="outPost"></span></p>
-        <p><strong>Net Change:</strong> <strong id="outChange"></strong></p>
+        <p><strong>Date of Report:</strong> <span id="outDate"></span></p>
+        <hr style="margin-bottom: 25px;">
         
-        <div style="background-color: #e8f4f8; padding: 15px; border-left: 4px solid #3498db; margin-top: 20px;">
-            <h4>Clinical Analysis</h4>
-            <div id="outAnalysis"></div>
-        </div>
+        <div id="accumulated-reports"></div>
 
-        <button class="print-btn" onclick="window.print()">Save as PDF / Print Report</button>
+        <button class="print-btn" onclick="window.print()">Save / Print Full Master Report</button>
+        <button class="clear-btn" onclick="clearReport()">Clear Report & Start New Patient</button>
     </div>
 </div>
 
@@ -98,4 +98,112 @@
     const forms = {
         FMA: [
             { section: "Reflexes & Synergies", items: ["Biceps reflex", "Triceps reflex", "Flexor synergy (Shoulder Retraction)", "Flexor synergy (Shoulder Elevation)", "Flexor synergy (Shoulder Abduction)", "Flexor synergy (External Rotation)", "Flexor synergy (Elbow Flexion)", "Flexor synergy (Forearm Supination)", "Extensor synergy (Shoulder Adduction/IR)", "Extensor synergy (Elbow Extension)", "Extensor synergy (Forearm Pronation)"] },
-            { section: "Movement out of Synergy", items:
+            { section: "Movement out of Synergy", items: ["Hand to lumbar spine", "Shoulder flexion to 90 (elbow straight)", "Pronation/supination (elbow at 90)", "Shoulder abduction to 90 (elbow straight)", "Shoulder flexion 90-180", "Pronation/supination (elbow straight)"] },
+            { section: "Wrist & Hand", items: ["Wrist stability at 15 deg extension", "Wrist flexion/extension (elbow at 90)", "Wrist stability (elbow straight)", "Wrist flexion/extension (elbow straight)", "Mass flexion", "Mass extension", "Grip 1 (Hook)", "Grip 2 (Thumb to index)", "Grip 3 (Pincer)", "Grip 4 (Cylinder)", "Grip 5 (Spherical)"] },
+            { section: "Coordination / Speed", items: ["Tremor", "Dysmetria", "Time (Compared to unaffected side)"] }
+        ],
+        ARAT: [
+            { section: "Grasp", items: ["Block 10 cm", "Block 2.5 cm", "Block 5 cm", "Block 7.5 cm", "Cricket ball", "Stone"] },
+            { section: "Grip", items: ["Pour water", "Tube 2.25 cm", "Tube 1 x 16 cm", "Washer over bolt"] },
+            { section: "Pinch", items: ["Ball bearing 3rd finger", "Marble 3rd finger", "Ball bearing 2nd finger", "Marble 2nd finger", "Ball bearing 1st finger", "Marble 1st finger"] },
+            { section: "Gross Movement", items: ["Hand behind head", "Hand on top of head", "Hand to mouth"] }
+        ],
+        WMFT: [
+            { section: "Functional Tasks", items: ["Forearm to table (side)", "Forearm to box (side)", "Extend elbow (side)", "Extend elbow (weight)", "Hand to table (front)", "Hand to box (front)", "Weight to box", "Reach & retrieve", "Lift can", "Lift pencil", "Lift paper clip", "Stack checkers", "Flip cards", "Turn key in lock", "Fold towel"] }
+        ],
+        MAS: [
+            { section: "Upper Extremity Tone", items: ["Shoulder Adductors", "Elbow Flexors", "Elbow Extensors", "Wrist Flexors", "Finger Flexors"] }
+        ],
+        MMT: [
+            { section: "Upper Extremity Strength", items: ["Shoulder Flexion", "Shoulder Abduction", "Elbow Flexion", "Elbow Extension", "Wrist Flexion", "Wrist Extension", "Grip Strength (0-5 scale)"] }
+        ],
+        ROM: [
+            { section: "Active Range of Motion (Degrees)", items: ["Shoulder Flexion", "Shoulder Abduction", "Shoulder External Rotation", "Elbow Flexion", "Elbow Extension", "Wrist Extension"] }
+        ],
+        Barthel: [
+            { section: "Activities of Daily Living", items: ["Feeding (0=Unable, 5=Needs help, 10=Indep)", "Bathing (0=Dep, 5=Indep)", "Grooming (0=Needs help, 5=Indep)", "Dressing (0=Dep, 5=Needs help, 10=Indep)", "Bowels (0=Incontinent, 5=Occas, 10=Cont)", "Bladder (0=Incontinent, 5=Occas, 10=Cont)", "Toilet Use (0=Dep, 5=Needs help, 10=Indep)", "Transfers (0=Unable, 5=Major help, 10=Minor help, 15=Indep)", "Mobility (0=Immobile, 5=WC, 10=Help, 15=Indep)", "Stairs (0=Unable, 5=Needs help, 10=Indep)"] }
+        ]
+    };
+
+    let reportInitialized = false;
+
+    function renderForm() {
+        const type = document.getElementById('assessmentType').value;
+        const container = document.getElementById('dynamic-form-container');
+        container.innerHTML = ""; 
+        if (!type) return;
+
+        let html = `<table><tr><th>Test Item / Task</th><th>Day 1 Score</th><th>Day 3 Score</th></tr>`;
+
+        let options = "";
+        let isInput = false;
+
+        if (type === "FMA") options = `<option value="0">0 - Cannot perform</option><option value="1">1 - Performs partially</option><option value="2">2 - Performs fully</option>`;
+        if (type === "ARAT") options = `<option value="0">0 - No movement</option><option value="1">1 - Performs partially</option><option value="2">2 - Abnormally long/comp</option><option value="3">3 - Performs normally</option>`;
+        if (type === "WMFT") options = `<option value="0">0 - No attempt</option><option value="1">1 - Attempt, no movement</option><option value="2">2 - Moves, incomplete</option><option value="3">3 - Completes, synergic/slow</option><option value="4">4 - Completes, almost normal</option><option value="5">5 - Normal movement</option>`;
+        if (type === "MAS") options = `<option value="0">0 - Normal</option><option value="1">1 - Slight catch</option><option value="1.5">1+ - Catch + min resistance</option><option value="2">2 - Marked increase</option><option value="3">3 - Passive mvt diff</option><option value="4">4 - Rigid</option>`;
+        if (type === "MMT") isInput = true; 
+        if (type === "ROM") isInput = true;
+        if (type === "Barthel") isInput = true; 
+
+        forms[type].forEach(group => {
+            html += `<tr><td colspan="3" class="section-header">${group.section}</td></tr>`;
+            group.items.forEach(item => {
+                if (isInput) {
+                    html += `<tr>
+                        <td>${item}</td>
+                        <td><input type="number" class="day1-input" placeholder="Score"></td>
+                        <td><input type="number" class="day3-input" placeholder="Score"></td>
+                    </tr>`;
+                } else {
+                    html += `<tr>
+                        <td>${item}</td>
+                        <td><select class="day1-input">${options}</select></td>
+                        <td><select class="day3-input">${options}</select></td>
+                    </tr>`;
+                }
+            });
+        });
+
+        html += `</table><button onclick="addAssessmentToReport('${type}')">Analyze & Add to Master Report</button>`;
+        container.innerHTML = html;
+    }
+
+    function addAssessmentToReport(type) {
+        let d1Inputs = document.querySelectorAll('.day1-input');
+        let d3Inputs = document.querySelectorAll('.day3-input');
+        let sel = document.getElementById('assessmentType');
+        let assessmentName = sel.options[sel.selectedIndex].text;
+        
+        let analysisText = "";
+        let blockHTML = `<div class="assessment-block"><h3>${assessmentName}</h3>`;
+
+        // --- Initialize Patient Header if this is the first test ---
+        if (!reportInitialized) {
+            document.getElementById('outPatient').innerText = document.getElementById('patientId').value || "Not Specified";
+            document.getElementById('outChronicity').innerText = document.getElementById('chronicity').value;
+            let today = new Date();
+            document.getElementById('outDate').innerText = today.toLocaleDateString();
+            document.getElementById('report-section').style.display = "block";
+            reportInitialized = true;
+        }
+
+        // --- LOGIC FOR ROM AND MMT (ITEMIZED DIFFERENCES) ---
+        if (type === "ROM" || type === "MMT") {
+            let breakdownHTML = `<table class="breakdown-table" style="width:100%; border-collapse:collapse; margin-top:10px;">
+                <tr><th style="border:1px solid #ddd; padding:5px; text-align:left;">Measure</th>
+                <th style="border:1px solid #ddd; padding:5px;">Day 1</th>
+                <th style="border:1px solid #ddd; padding:5px;">Day 3</th>
+                <th style="border:1px solid #ddd; padding:5px;">Difference</th></tr>`;
+            
+            let allItems = forms[type].map(g => g.items).flat();
+            
+            d1Inputs.forEach((el, index) => {
+                let v1 = parseFloat(el.value);
+                let v3 = parseFloat(d3Inputs[index].value);
+                let itemName = allItems[index];
+
+                if (!isNaN(v1) || !isNaN(v3)) {
+                    let val1 = isNaN(v1) ? "-" : v1;
+                    let val3 = isNaN(v3) ? "-" : v3;
+                    let diff = (!isNaN
