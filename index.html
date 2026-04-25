@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master UE Bootcamp Scorer</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="text"], select, input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .col { flex: 1; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 25px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #3498db; color: white; }
+        .section-header { background-color: #ecf0f1; font-weight: bold; }
+
+        button { background-color: #e67e22; color: white; border: none; padding: 15px 20px; cursor: pointer; border-radius: 4px; font-size: 18px; width: 100%; font-weight: bold; }
+        button:hover { background-color: #d35400; }
+        
+        #report-section { display: none; margin-top: 30px; padding: 20px; border: 2px dashed #7f8c8d; background-color: #fdfefe; }
+        .print-btn { background-color: #27ae60; margin-top: 15px; }
+        .print-btn:hover { background-color: #2ecc71; }
+        
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; max-width: 100%; padding: 0; }
+            #input-section, .print-btn { display: none; }
+            #report-section { display: block; border: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="input-section">
+        <h1>Master UE Bootcamp Interactive Scorer</h1>
+        
+        <div class="row">
+            <div class="col form-group">
+                <label>Patient ID / Initials:</label>
+                <input type="text" id="patientId" placeholder="e.g., JD">
+            </div>
+            <div class="col form-group">
+                <label>Chronicity:</label>
+                <select id="chronicity">
+                    <option value="Acute (< 1 month)">Acute (< 1 month)</option>
+                    <option value="Subacute (1 - 6 months)">Subacute (1 - 6 months)</option>
+                    <option value="Chronic (> 6 months)">Chronic (> 6 months)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Select Assessment to Score:</label>
+            <select id="assessmentType" onchange="renderForm()">
+                <option value="">-- Choose an Assessment --</option>
+                <option value="FMA">Fugl-Meyer (Upper Extremity Motor) [0-2 Scale]</option>
+                <option value="ARAT">Action Research Arm Test (ARAT) [0-3 Scale]</option>
+                <option value="WMFT">Wolf Motor Function Test (WMFT) [0-5 Scale]</option>
+                <option value="MAS">Modified Ashworth Scale (UE) [0-4 Scale]</option>
+                <option value="MMT">Manual Muscle Testing (MMT UE) [0-5 Scale]</option>
+                <option value="ROM">Range of Motion (UE Degrees)</option>
+                <option value="Barthel">Barthel Index (ADLs)</option>
+            </select>
+        </div>
+
+        <div id="dynamic-form-container"></div>
+    </div>
+
+    <div id="report-section">
+        <h1>Therapy Outcome Report</h1>
+        <p><strong>Patient ID:</strong> <span id="outPatient"></span></p>
+        <p><strong>Stroke Chronicity:</strong> <span id="outChronicity"></span></p>
+        <hr>
+        <h3>Assessment: <span id="outAssessment"></span></h3>
+        <p><strong>Baseline (Day 1):</strong> <span id="outPre"></span></p>
+        <p><strong>Post-Bootcamp (Day 3):</strong> <span id="outPost"></span></p>
+        <p><strong>Net Change:</strong> <strong id="outChange"></strong></p>
+        
+        <div style="background-color: #e8f4f8; padding: 15px; border-left: 4px solid #3498db; margin-top: 20px;">
+            <h4>Clinical Analysis & Norms</h4>
+            <p id="outAnalysis"></p>
+        </div>
+
+        <button class="print-btn" onclick="window.print()">Save as PDF / Print Report</button>
+    </div>
+</div>
+
+<script>
+    // Comprehensive Database of Assessment Questions
+    const forms = {
+        FMA: [
+            { section: "Reflexes & Synergies", items: ["Biceps reflex", "Triceps reflex", "Flexor synergy (Shoulder Retraction)", "Flexor synergy (Shoulder Elevation)", "Flexor synergy (Shoulder Abduction)", "Flexor synergy (External Rotation)", "Flexor synergy (Elbow Flexion)", "Flexor synergy (Forearm Supination)", "Extensor synergy (Shoulder Adduction/IR)", "Extensor synergy (Elbow Extension)", "Extensor synergy (Forearm Pronation)"] },
+            { section: "Movement out of Synergy", items: ["Hand to lumbar spine", "Shoulder flexion to 90 (elbow straight)", "Pronation/supination (elbow at 90)", "Shoulder abduction to 90 (elbow straight)", "Shoulder flexion 90-180", "Pronation/supination (elbow straight)"] },
+            { section: "Wrist & Hand", items: ["Wrist stability at 15 deg extension", "Wrist flexion/extension (elbow at 90)", "Wrist stability (elbow straight)", "Wrist flexion/extension (elbow straight)", "Mass flexion", "Mass extension", "Grip 1 (Hook)", "Grip 2 (Thumb to index)", "Grip 3 (Pincer)", "Grip 4 (Cylinder)", "Grip 5 (Spherical)"] },
+            { section: "Coordination / Speed", items: ["Tremor", "Dysmetria", "Time (Compared to unaffected side)"] }
+        ],
+        ARAT: [
+            { section: "Grasp", items: ["Block 10 cm", "Block 2.5 cm", "Block 5 cm", "Block 7.5 cm", "Cricket ball", "Stone"] },
+            { section: "Grip", items: ["Pour water", "Tube 2.25 cm", "Tube 1 x 16 cm", "Washer over bolt"] },
+            { section: "Pinch", items: ["Ball bearing 3rd finger", "Marble 3rd finger", "Ball bearing 2nd finger", "Marble 2nd finger", "Ball bearing 1st finger", "Marble 1st finger"] },
+            { section: "Gross Movement", items: ["Hand behind head", "Hand on top of head", "Hand to mouth"] }
+        ],
+        WMFT: [
+            { section: "Functional Tasks", items: ["Forearm to table (side)", "Forearm to box (side)", "Extend elbow (side)", "Extend elbow (weight)", "Hand to table (front)", "Hand to box (front)", "Weight to box", "Reach & retrieve", "Lift can", "Lift pencil", "Lift paper clip", "Stack checkers", "Flip cards", "Turn key in lock", "Fold towel"] }
+        ],
+        MAS: [
+            { section: "Upper Extremity Tone", items: ["Shoulder Adductors", "Elbow Flexors", "Elbow Extensors", "Wrist Flexors", "Finger Flexors"] }
+        ],
+        MMT: [
+            { section: "Upper Extremity Strength", items: ["Shoulder Flexion", "Shoulder Abduction", "Elbow Flexion", "Elbow Extension", "Wrist Flexion", "Wrist Extension", "Grip Strength (0-5 scale)"] }
+        ],
+        ROM: [
+            { section: "Active Range of Motion (Degrees)", items: ["Shoulder Flexion", "Shoulder Abduction", "Shoulder External Rotation", "Elbow Flexion", "Elbow Extension", "Wrist Extension"] }
+        ],
+        Barthel: [
+            { section: "Activities of Daily Living", items: ["Feeding (0=Unable, 5=Needs help, 10=Indep)", "Bathing (0=Dep, 5=Indep)", "Grooming (0=Needs help, 5=Indep)", "Dressing (0=Dep, 5=Needs help, 10=Indep)", "Bowels (0=Incontinent, 5=Occas, 10=Cont)", "Bladder (0=Incontinent, 5=Occas, 10=Cont)", "Toilet Use (0=Dep, 5=Needs help, 10=Indep)", "Transfers (0=Unable, 5=Major help, 10=Minor help, 15=Indep)", "Mobility (0=Immobile, 5=WC, 10=Help, 15=Indep)", "Stairs (0=Unable, 5=Needs help, 10=Indep)"] }
+        ]
+    };
+
+    function renderForm() {
+        const type = document.getElementById('assessmentType').value;
+        const container = document.getElementById('dynamic-form-container');
+        container.innerHTML = ""; 
+        if (!type) return;
+
+        let html = `<table><tr><th>Test Item / Task</th><th>Day 1 Score</th><th>Day 3 Score</th></tr>`;
+
+        // Define specific dropdown options based on the test
+        let options = "";
+        let isInput = false;
+
+        if (type === "FMA") options = `<option value="0">0 - Cannot perform</option><option value="1">1 - Performs partially</option><option value="2">2 - Performs fully</option>`;
+        if (type === "ARAT") options = `<option value="0">0 - No movement</option><option value="1">1 - Performs partially</option><option value="2">2 - Abnormally long/comp</option><option value="3">3 - Performs normally</option>`;
+        if (type === "WMFT") options = `<option value="0">0 - No attempt</option><option value="1">1 - Attempt, no movement</option><option value="2">2 - Moves, incomplete</option><option value="3">3 - Completes, synergic/slow</option><option value="4">4 - Completes, almost normal</option><option value="5">5 - Normal movement</option>`;
+        if (type === "MAS") options = `<option value="0">0 - Normal</option><option value="1">1 - Slight catch</option><option value="1.5">1+ - Catch + min resistance</option><option value="2">2 - Marked increase</option><option value="3">3 - Passive mvt diff</option><option value="4">4 - Rigid</option>`;
+        if (type === "MMT") options = `<option value="0">0 - Zero</option><option value="1">1 - Trace</option><option value="2">2 - Poor</option><option value="3">3 - Fair</option><option value="4">4 - Good</option><option value="5">5 - Normal</option>`;
+        if (type === "ROM") isInput = true;
+        if (type === "Barthel") isInput = true; // For Barthel, we'll let you type the raw number based on the item description.
+
+        forms[type].forEach(group => {
+            html += `<tr><td colspan="3" class="section-header">${group.section}</td></tr>`;
+            group.items.forEach(item => {
+                if (isInput) {
+                    html += `<tr>
+                        <td>${item}</td>
+                        <td><input type="number" class="day1-input" placeholder="Score"></td>
+                        <td><input type="number" class="day3-input" placeholder="Score"></td>
+                    </tr>`;
+                } else {
+                    html += `<tr>
+                        <td>${item}</td>
+                        <td><select class="day1-input">${options}</select></td>
+                        <td><select class="day3-input">${options}</select></td>
+                    </tr>`;
+                }
+            });
+        });
+
+        html += `</table><button onclick="calculateAndReport('${type}')">Tally Scores & Analyze Outcome</button>`;
+        container.innerHTML = html;
+    }
+
+    function calculateAndReport(type) {
+        let preScore = 0, postScore = 0;
+        let d1Inputs = document.querySelectorAll('.day1-input');
+        let d3Inputs = document.querySelectorAll('.day3-input');
+        
+        let isComplete = true;
+
+        d1Inputs.forEach((el, index) => {
+            let v1 = parseFloat(el.value);
+            let v3 = parseFloat(d3Inputs[index].value);
+            if(isNaN(v1) || isNaN(v3)) isComplete = false;
+            preScore += v1 || 0;
+            postScore += v3 || 0;
+        });
+
+        if(!isComplete && (type === 'ROM' || type === 'Barthel')) {
+            alert("Please enter values for all Day 1 and Day 3 fields. Use 0 if unable.");
+            return;
+        }
+
+        let change = postScore - preScore;
+        let analysisText = "";
+        let isLowerBetter = false;
+
+        if(type === "MAS") {
+            preScore = preScore.toFixed(1);
+            postScore = postScore.toFixed(1);
+            change = parseFloat(change.toFixed(1));
+            isLowerBetter = true;
+        }
+
+        // Clinical Logic Database
+        if(type === "FMA") {
+            analysisText = `The Fugl-Meyer (UE) evaluates motor impairment (Max 66). The MCID is roughly 5.2 points. Your patient changed by ${change} points. `;
+            if(change >= 5) analysisText += "<strong>Clinically significant improvement.</strong> The patient shows better isolated motor control and synergistic movement.";
+            else if(change > 0) analysisText += "Positive trending in motor control.";
+            else analysisText += "Motor impairment level remained stable.";
+        }
+        else if(type === "ARAT") {
+            analysisText = `The ARAT evaluates functional UE capacity (Max 57). MCID is ~5.7. Change: ${change} points. `;
+            if(change >= 5.7) analysisText += "<strong>Clinically significant improvement in function.</strong>";
+            else if(change > 0) analysisText += "Slight functional improvement noted.";
+            else analysisText += "Function remained stable.";
+        }
+        else if(type === "WMFT") {
+            analysisText = `The WMFT assesses functional ability (Max 75). MCID is roughly 4.3 points. `;
+            if(change >= 4.3) analysisText += "<strong>Clinically significant improvement.</strong> Movement quality and task completion have improved.";
+            else if(change > 0) analysisText += "Mild improvements in movement quality.";
+            else analysisText += "Scores remained stable.";
+        }
+        else if(type === "MAS") {
+            analysisText = `The MAS measures spasticity. A lower combined score across all UE joints indicates reduced tone. `;
+            if(change <= -1) analysisText += "<strong>Meaningful reduction in spasticity</strong>, creating a better window for active ROM.";
+            else if(change === 0) analysisText += "Tone remained unchanged.";
+            else analysisText += "Overall tone increased. Monitor for fatigue.";
+        }
+        else if(type === "MMT") {
+            analysisText = `Gross Manual Muscle Testing across the affected UE. Change: ${change} total grade points. `;
+            if(change >= 2) analysisText += "Improvement in specific muscle recruitment noted. In a 3-day window, this reflects neuromuscular re-education rather than hypertrophy.";
+            else if(change > 0) analysisText += "Slight improvement in muscle power.";
+            else analysisText += "Strength grades remained stable.";
+        }
+        else if(type === "ROM") {
+            analysisText = `Composite Active Range of Motion (AROM) in degrees. Total cumulative change across assessed joints: ${change} degrees. `;
+            if(change >= 15) analysisText += "<strong>Meaningful improvement in available ROM</strong>, likely due to reduced tone, improved scapular mechanics, or increased patient confidence.";
+            else if(change > 0) analysisText += "Mild improvements in mobility.";
+            else analysisText += "ROM remained stable.";
+        }
+        else if(type === "Barthel") {
+            analysisText = `The Barthel Index measures ADL independence (Max 100). Change: ${change} points. `;
+            if(change >= 10) analysisText += "<strong>Significant improvement in ADL independence.</strong> The bootcamp gains are successfully translating to self-care tasks.";
+            else if(change > 0) analysisText += "Positive trend in ADL participation.";
+            else analysisText += "ADL independence remained stable.";
+        }
+
+        let changeStr = "";
+        if(isLowerBetter) {
+            changeStr = change > 0 ? "+" + change + " (Worse)" : (change < 0 ? change + " (Better)" : "0");
+        } else {
+            changeStr = change > 0 ? "+" + change + " (Better)" : (change < 0 ? change + " (Worse)" : "0");
+        }
+
+        // Push to DOM
+        document.getElementById('outPatient').innerText = document.getElementById('patientId').value || "Not Specified";
+        document.getElementById('outChronicity').innerText = document.getElementById('chronicity').value;
+        let sel = document.getElementById('assessmentType');
+        document.getElementById('outAssessment').innerText = sel.options[sel.selectedIndex].text;
+        document.getElementById('outPre').innerText = preScore;
+        document.getElementById('outPost').innerText = postScore;
+        document.getElementById('outChange').innerText = changeStr;
+        document.getElementById('outAnalysis').innerHTML = analysisText;
+
+        document.getElementById('report-section').style.display = "block";
+    }
+</script>
+</body>
+</html>
